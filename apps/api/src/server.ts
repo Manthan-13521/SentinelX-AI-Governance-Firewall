@@ -110,28 +110,13 @@ await registerOpenRouterRoutes(fastify);
 fastify.get('/api/presence', async () => getPresence());
 
 fastify.get('/api/health', async () => {
-  const db = await dbAvailable();
   const providers = listProviderStatus();
-  let redis = false;
-  try {
-    redis = (await import('./lib/redis')).getRedis().status === 'ready';
-  } catch {
-    redis = false;
-  }
-  const dbMode = db ? 'connected' : 'memory';
-  const checks = {
-    database: { mode: dbMode, available: db },
-    redis: redis,
-    llm: providers.filter((p) => p.configured).length,
-  };
   return {
     status: 'ok',
     service: 'sentinelx-api',
     version: '1.0.0',
-    mode: dbMode,
     uptimeSeconds: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
-    checks,
     providers: providers.map((p) => ({ id: p.id, configured: p.configured })),
   };
 });
