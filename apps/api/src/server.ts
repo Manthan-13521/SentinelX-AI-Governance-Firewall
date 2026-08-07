@@ -98,7 +98,9 @@ export function emitScanEvent(result: unknown) {
 
 const pipeline = new SentinelPipeline((trace) => emitAgentEvent(trace));
 
-await seedDemoDataIfEmpty();
+await seedDemoDataIfEmpty().catch((err) => {
+  fastify.log.error({ err }, 'Seed failed, continuing without demo data');
+});
 
 await registerEnterpriseRoutes(fastify);
 await registerAIRoutes(fastify);
@@ -780,6 +782,15 @@ const start = async () => {
     const configured = envReport.providers.filter((p) => p.configured).map((p) => p.id);
     fastify.log.info(`[env] LLM providers configured: ${configured.join(', ')}`);
   }
+
+  // Prevent process exit on unhandled errors
+  process.on('unhandledRejection', (reason) => {
+    fastify.log.error({ err: reason }, 'Unhandled Rejection');
+  });
+  process.on('uncaughtException', (err) => {
+    fastify.log.error({ err }, 'Uncaught Exception');
+  });
+
   try {
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
     fastify.log.info(`🚀 SentinelX API listening on http://localhost:${PORT}`);
