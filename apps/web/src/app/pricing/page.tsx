@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+export const dynamic = 'force-dynamic'
+
+import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   Zap,
   ShieldCheck,
@@ -15,12 +17,10 @@ import {
   CheckCircle2,
   ArrowRight,
   Loader2,
-  Sparkles,
-  AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth"
-
+import { SignupWelcomeBanner } from "@/components/signup-welcome"
 
 const PLANS = {
   trial: {
@@ -120,19 +120,10 @@ const PLANS = {
 type PlanId = keyof typeof PLANS
 
 export default function PricingPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const { user } = useAuth()
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
   const [processing, setProcessing] = useState(false)
-  const [showSignupWelcome, setShowSignupWelcome] = useState(false)
-
-  useEffect(() => {
-    if (searchParams.get("signup") === "true") {
-      setShowSignupWelcome(true)
-    }
-  }, [searchParams])
 
   const handleSelect = async (planId: PlanId) => {
     setSelectedPlan(planId)
@@ -209,18 +200,7 @@ export default function PricingPage() {
       <section className="relative overflow-hidden py-20 lg:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
-            {showSignupWelcome && (
-              <div className="mb-6 p-4 rounded-xl bg-status-low/10 border border-status-low/20 animate-in slide-in-from-top-4 duration-300">
-                <div className="flex items-center justify-center gap-2 text-status-low">
-                  <Sparkles className="h-5 w-5" />
-                  <span className="font-medium">Welcome to SentinelX!</span>
-                  <AlertCircle className="h-5 w-5" />
-                </div>
-                <p className="mt-2 text-sm text-text-secondary">
-                  Your account has been created. Choose a plan to activate your subscription and start protecting your AI workflows.
-                </p>
-              </div>
-            )}
+            <SignupWelcomeBanner />
             <div className="mb-4 flex items-center justify-center gap-2">
               <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent-light">
                 Transparent Pricing

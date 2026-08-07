@@ -793,6 +793,28 @@ export default function ScannerPage() {
             </div>
           </div>
 
+          {/* Threat Radar & Live Risk Meter - Prominent Analysis */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <div className="glass-card card-glow p-5 flex flex-col items-center">
+                <div className="flex items-center gap-2 self-start mb-3">
+                  <Radar className="h-4 w-4 text-accent-light" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-text-muted">Threat Radar</span>
+                </div>
+                <ThreatRadar active={true} riskScore={result.riskScore} />
+                <div className="mt-3 text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-text-muted">Threat Level</p>
+                  <p className="text-lg font-bold mono" style={{ color: result.riskScore >= 80 ? "#ef4444" : result.riskScore >= 60 ? "#f97316" : result.riskScore >= 35 ? "#eab308" : "#22c55e" }}>
+                    {result.threatLevel}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="lg:col-span-2">
+              <LiveRiskMeter score={result.riskScore} active={true} running={false} />
+            </div>
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="glass-card p-5">
               <div className="mb-3 flex items-center justify-between">
