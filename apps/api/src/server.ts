@@ -73,6 +73,7 @@ fastify.addHook('onResponse', async (request, reply) => {
 const ALLOWED_ORIGINS = [
   'https://sentinelx.ai',
   'https://web-nine-dun-97.vercel.app',
+  'https://sentinel--ai.vercel.app',
   'http://localhost:3000',
   'http://localhost:3001',
   ...(process.env.WEB_ORIGIN
