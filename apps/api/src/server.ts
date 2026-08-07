@@ -804,6 +804,25 @@ const start = async () => {
   try {
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
     fastify.log.info(`🚀 SentinelX API listening on http://localhost:${PORT}`);
+    
+    // Keep process alive and handle background tasks safely
+    const keepAlive = setInterval(() => {
+      // Keep process alive for Railway health checks
+    }, 30000);
+    
+    // Ensure keepAlive doesn't prevent graceful shutdown
+    process.on('SIGTERM', async () => {
+      clearInterval(keepAlive);
+      fastify.log.info('SIGTERM received, closing gracefully');
+      await fastify.close();
+      process.exit(0);
+    });
+    process.on('SIGINT', async () => {
+      clearInterval(keepAlive);
+      fastify.log.info('SIGINT received, closing gracefully');
+      await fastify.close();
+      process.exit(0);
+    });
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
