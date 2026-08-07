@@ -50,7 +50,7 @@ const fastify = Fastify({
   },
 });
 
-fastify.addHook('onRequest', async (request, reply) => {
+fastify.addHook('onRequest', async (request) => {
   console.log(
     '[REQUEST START]',
     request.method,
