@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String
+  role       String   @default("EMPLOYEE")
+  department String   @default("Engineering")
+  password   String
+  avatarUrl  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  audits    AuditLog[]
+  sessions  Session[]
+  riskEvents RiskEvent[]
+}
+
+model AuditLog {
+  id               String   @id @default(cuid())
+  userId           String?
+  promptHash       String
+  prompt           String
+  rewrittenPrompt  String?
+  violations       Json
+  riskScore        Float    @default(0)
+  threatLevel      String   @default("LOW")
+  policiesTriggered Json
+  secrets          Json
+  decision         String   @default("ALLOW")
+  llmProvider      String?
+  llmModel         String?
+  latencyMs        Int?
+  timestamp        DateTime @default(now())
+  ipAddress        String?
+  sessionId        String?
+  agentTrace       Json?
+  user             User?    @relation(fields: [userId], references: [id])
+
+  @@index([timestamp])
+  @@index([riskScore])
+}
+
+model Policy {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  regulation  String
+  category    String
+  rules       Json
+  severity    String   @default("HIGH")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model DetectionRule {
+  id                String   @id @default(cuid())
+  name              String
+  category          String
+  pattern           String
+  severity          String   @default("HIGH")
+  enabled           Boolean  @default(true)
+  description       String
+  falsePositiveCount Int     @default(0)
+  truePositiveCount  Int     @default(0)
+  createdAt         DateTime @default(now())
+}
+
+model RiskEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  score     Float
+  level     String
+  details   Json
+  timestamp DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([timestamp])
+}
+
+model Alert {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  severity    String   @default("MEDIUM")
+  source      String
+  acknowledged Boolean @default(false)
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String?
+  active    Boolean  @default(true)
+  ipAddress String?
+  userAgent String?
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  category  String   @default("general")
+  updatedAt DateTime @updatedAt
+}
