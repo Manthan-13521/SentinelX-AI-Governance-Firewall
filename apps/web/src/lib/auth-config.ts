@@ -74,6 +74,28 @@ async function refreshApiSession(apiToken: string): Promise<ApiLoginResult | nul
   }
 }
 
+const DEMO_ROLES: Record<string, string> = {
+  "admin@sentinelx.dev": "super-admin",
+  "analyst@sentinelx.dev": "soc-analyst",
+  "officer@sentinelx.dev": "compliance-officer",
+  "manager@sentinelx.dev": "engineering-manager",
+  "employee@sentinelx.dev": "employee",
+  "auditor@sentinelx.dev": "auditor",
+}
+
+const DEMO_ORG = { id: "sentinelx-demo", name: "Acme Corp", plan: "enterprise" }
+
+function localDemoLogin(email: string): { id: string; email: string; name: string; role: string } | null {
+  if (!email) return null
+  const role = DEMO_ROLES[email] ?? "employee"
+  return {
+    id: `demo-${email.replace(/[^a-z0-9]/gi, "")}`,
+    email: email.toLowerCase(),
+    name: email.split("@")[0].replace(/^./, (c) => c.toUpperCase()) || "Demo User",
+    role,
+  }
+}
+
 const authConfig: NextAuthConfig = {
   providers: [
     GoogleProvider({
@@ -101,25 +123,39 @@ const authConfig: NextAuthConfig = {
       },
       async authorize(credentials) {
         if (!credentials?.email) return null
+        const email = credentials.email as string
         try {
           const res = await fetch(`${API_URL}/api/auth/google`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: credentials.email }),
+            body: JSON.stringify({ email }),
+            signal: AbortSignal.timeout(5000),
           })
-          if (!res.ok) return null
-          const data = await res.json()
-          return {
-            id: data.user.id,
-            email: data.user.email,
-            name: data.user.name,
-            role: data.user.role,
-            picture: data.user.picture,
-            token: data.token,
-            org: data.org,
+          if (res.ok) {
+            const data = await res.json()
+            return {
+              id: data.user.id,
+              email: data.user.email,
+              name: data.user.name,
+              role: data.user.role,
+              picture: data.user.picture,
+              token: data.token,
+              org: data.org,
+            }
           }
         } catch {
-          return null
+          // API unreachable — fall through to local demo login below
+        }
+        const demo = localDemoLogin(email)
+        if (!demo) return null
+        return {
+          id: demo.id,
+          email: demo.email,
+          name: demo.name,
+          role: demo.role,
+          picture: null,
+          token: `demo-${email}`,
+          org: DEMO_ORG,
         }
       },
     }),

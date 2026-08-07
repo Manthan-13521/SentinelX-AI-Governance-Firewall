@@ -96,7 +96,14 @@ function AuthConsumer({ children }: { children: React.ReactNode }) {
   }, [sessionUser])
 
   const loginWithGoogle = useCallback(async () => {
-    await signIn("google", { callbackUrl: "/dashboard" })
+    const res = await signIn("google", { callbackUrl: "/dashboard", redirect: false })
+    if (res?.error) throw new Error(res.error)
+    if (res?.url) {
+      if (res.url.includes("error=") || res.url.includes("/login")) {
+        throw new Error(res.error ?? "Google sign-in is not configured on the server")
+      }
+      window.location.href = res.url
+    }
   }, [])
 
   const loginWithDemo = useCallback(async (email: string) => {
