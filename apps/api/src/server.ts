@@ -17,7 +17,7 @@ import { getPresence, registerAnalyst, unregisterAnalyst } from './lib/presence'
 import { registerIncidentRoutes } from './routes/incidents';
 import { registerThreatIntelRoutes } from './routes/threat-intel';
 import { validateEnv } from './lib/env';
-import { dbAvailable } from './lib/prisma';
+import './lib/prisma';
 import { listProviderStatus } from './llm/providers';
 import { registerAuthRoutes } from './routes/auth';
 import { verifyToken } from './lib/auth';
@@ -27,7 +27,7 @@ function system(role: string): ChatMessage {
   return { role: 'system', content: role };
 }
 
-const PORT = Number(process.env.PORT || 3001);
+const PORT = Number(process.env.PORT) || 8080;
 
 const envReport = validateEnv();
 
@@ -42,8 +42,26 @@ const fastify = Fastify({
   },
 });
 
+const ALLOWED_ORIGINS = [
+  'https://sentinelx.ai',
+  'https://web-nine-dun-97.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  ...(process.env.WEB_ORIGIN
+    ? process.env.WEB_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+    : []),
+];
+
 await fastify.register(cors, {
-  origin: process.env.WEB_ORIGIN || 'http://localhost:3000',
+  origin: (origin, cb) => {
+    // Allow requests with no origin (e.g. curl, Railway healthcheck, server-to-server)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      cb(null, true);
+    } else {
+      fastify.log.warn(`[cors] Blocked origin: ${origin}`);
+      cb(new Error('Not allowed by CORS'), false);
+    }
+  },
   credentials: true,
 });
 

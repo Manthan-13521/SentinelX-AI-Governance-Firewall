@@ -6,10 +6,9 @@ builder = "nixpacks"
 
 [deploy]
 healthcheckPath = "/api/health"
-healthcheckTimeout = 100
+healthcheckTimeout = 120
 restartPolicyType = "always"
 restartPolicyMaxRetries = 10
 
-[env]
-NODE_ENV = "production"
-PORT = "3001"
+# NOTE: Do NOT set PORT here. Railway injects PORT dynamically at runtime.
+# Setting PORT here would override Railway's assigned port and break networking.
