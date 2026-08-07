@@ -17,7 +17,6 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth"
-import { SignupWelcomeBanner } from "@/components/signup-welcome"
 
 const PLANS = {
   trial: {
@@ -116,11 +115,7 @@ const PLANS = {
 
 type PlanId = keyof typeof PLANS
 
-interface PricingClientProps {
-  showSignupWelcome: boolean
-}
-
-export default function PricingClient({ showSignupWelcome }: PricingClientProps) {
+export default function PricingClient() {
   const { user } = useAuth()
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
@@ -201,7 +196,6 @@ export default function PricingClient({ showSignupWelcome }: PricingClientProps)
       <section className="relative overflow-hidden py-20 lg:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
-            <SignupWelcomeBanner show={showSignupWelcome} />
             <div className="mb-4 flex items-center justify-center gap-2">
               <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent-light">
                 Transparent Pricing
