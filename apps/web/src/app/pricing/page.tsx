@@ -19,11 +19,34 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth"
 
 const PLANS = {
+  trial: {
+    id: "trial",
+    name: "Trial",
+    price: 9,
+    yearlyPrice: 9,
+    currency: "INR",
+    interval: "one_time",
+    description: "Perfect for trying SentinelX with full features for a limited time",
+    features: {
+      users: 5,
+      aiRequests: 1000,
+      storage: 1,
+      compliancePacks: 1,
+      prioritySupport: false,
+      socDashboard: false,
+      unlimitedAuditLogs: false,
+      enterpriseSSO: false,
+      apiAccess: true,
+      customPolicies: false,
+    },
+    cta: "Start Trial",
+    popular: false,
+  },
   starter: {
     id: "starter",
     name: "Starter",
-    price: 999,
-    yearlyPrice: 9990,
+    price: 49,
+    yearlyPrice: 490,
     currency: "INR",
     interval: "monthly",
     description: "Perfect for small teams getting started with AI governance",
@@ -45,8 +68,8 @@ const PLANS = {
   professional: {
     id: "professional",
     name: "Professional",
-    price: 2999,
-    yearlyPrice: 29990,
+    price: 149,
+    yearlyPrice: 1490,
     currency: "INR",
     interval: "monthly",
     description: "For growing companies needing advanced security features",
@@ -68,8 +91,8 @@ const PLANS = {
   enterprise: {
     id: "enterprise",
     name: "Enterprise",
-    price: 4999,
-    yearlyPrice: 49990,
+    price: 499,
+    yearlyPrice: 4990,
     currency: "INR",
     interval: "monthly",
     description: "Complete AI governance for large organizations",
@@ -107,19 +130,21 @@ export default function PricingPage() {
     }
     setProcessing(true)
     try {
+      const plan = PLANS[planId]
+      const cycle = plan.interval === "one_time" ? "one_time" : billingCycle
       const res = await fetch("/api/billing/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId, billingCycle }),
+        body: JSON.stringify({ planId, billingCycle: cycle }),
       })
       const data = await res.json()
       if (data.order && typeof window !== "undefined" && (window as any).Razorpay) {
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount: data.order.amount,
+          amount: data.amount ?? data.order.amount,
           currency: data.order.currency,
           name: "SentinelX",
-          description: `${PLANS[planId].name} Plan - ${billingCycle}`,
+          description: `${PLANS[planId].name} Plan - ${cycle}`,
           order_id: data.order.id,
           prefill: {
             name: user?.name ?? "SentinelX User",
@@ -218,8 +243,9 @@ export default function PricingPage() {
       <section className="py-16 lg:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 lg:grid-cols-3">
-            {(["starter", "professional", "enterprise"] as PlanId[]).map((pid) => {
+            {(["trial", "starter", "professional", "enterprise"] as PlanId[]).map((pid) => {
               const plan = PLANS[pid]
+              const isOneTime = plan.interval === "one_time"
               return (
                 <article
                   key={pid}
@@ -241,10 +267,12 @@ export default function PricingPage() {
                   <div className="mb-6">
                     <div className={cn(
                       "flex h-14 w-14 items-center justify-center rounded-xl mx-auto mb-4",
+                      pid === "trial" && "bg-status-low/15",
                       pid === "starter" && "bg-status-info/15",
                       pid === "professional" && "bg-status-high/15",
                       pid === "enterprise" && "bg-accent/15",
                     )}>
+                      {pid === "trial" && <Zap className="h-7 w-7 text-status-low" />}
                       {pid === "starter" && <Zap className="h-7 w-7 text-status-info" />}
                       {pid === "professional" && <ShieldCheck className="h-7 w-7 text-status-high" />}
                       {pid === "enterprise" && <Crown className="h-7 w-7 text-accent-light" />}
@@ -256,19 +284,30 @@ export default function PricingPage() {
                   <div className="mb-6 text-center">
                     <div className="mb-2">
                       <span className="text-4xl font-bold text-text-primary">
-                        {billingCycle === "yearly" ? `₹${plan.yearlyPrice.toLocaleString()}` : `₹${plan.price.toLocaleString()}`}
+                        {isOneTime
+                          ? `₹${plan.price.toLocaleString()}`
+                          : billingCycle === "yearly"
+                          ? `₹${plan.yearlyPrice.toLocaleString()}`
+                          : `₹${plan.price.toLocaleString()}`}
                       </span>
-                      <span className="text-text-muted">/month</span>
+                      {isOneTime ? (
+                        <span className="text-text-muted"> (one-time)</span>
+                      ) : (
+                        <span className="text-text-muted">/month</span>
+                      )}
                     </div>
-                    {billingCycle === "yearly" && (
+                    {!isOneTime && billingCycle === "yearly" && (
                       <p className="text-sm text-status-low">
                         Billed yearly: ₹{plan.yearlyPrice.toLocaleString()}
                       </p>
                     )}
-                    {billingCycle === "monthly" && (
+                    {!isOneTime && billingCycle === "monthly" && (
                       <p className="text-sm text-text-muted">
                         Or ₹{plan.yearlyPrice.toLocaleString()}/year (save 17%)
                       </p>
+                    )}
+                    {isOneTime && (
+                      <p className="text-sm text-status-low">One-time payment</p>
                     )}
                   </div>
 

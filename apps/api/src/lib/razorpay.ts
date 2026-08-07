@@ -354,10 +354,29 @@ export function healthCheck(): { configured: boolean; keyId?: string } {
 }
 
 export const PLANS = {
+  trial: {
+    id: "plan_trial",
+    name: "Trial",
+    price: 900, // INR 9 (in paise)
+    currency: "INR",
+    interval: "one_time",
+    features: {
+      users: 5,
+      aiRequests: 1000,
+      storage: 1, // GB
+      compliancePacks: 1,
+      prioritySupport: false,
+      socDashboard: false,
+      unlimitedAuditLogs: false,
+      enterpriseSSO: false,
+      apiAccess: true,
+      customPolicies: false,
+    },
+  },
   starter: {
     id: "plan_starter",
     name: "Starter",
-    price: 99900, // INR 999/month
+    price: 4900, // INR 49/month (in paise)
     currency: "INR",
     interval: "monthly",
     features: {
@@ -376,7 +395,7 @@ export const PLANS = {
   professional: {
     id: "plan_professional",
     name: "Professional",
-    price: 299900, // INR 2,999/month
+    price: 14900, // INR 149/month (in paise)
     currency: "INR",
     interval: "monthly",
     features: {
@@ -395,7 +414,7 @@ export const PLANS = {
   enterprise: {
     id: "plan_enterprise",
     name: "Enterprise",
-    price: 499900, // INR 4,999/month
+    price: 49900, // INR 499/month (in paise)
     currency: "INR",
     interval: "monthly",
     features: {

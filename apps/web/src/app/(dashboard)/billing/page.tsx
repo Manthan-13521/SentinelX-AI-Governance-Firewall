@@ -29,11 +29,31 @@ import { useAuth } from "@/lib/auth"
 type PlanId = keyof typeof PLANS
 
 const PLANS = {
+  trial: {
+    id: "trial",
+    name: "Trial",
+    price: 9,
+    yearlyPrice: 9,
+    currency: "INR",
+    interval: "one_time",
+    features: {
+      users: 5,
+      aiRequests: 1000,
+      storage: 1,
+      compliancePacks: 1,
+      prioritySupport: false,
+      socDashboard: false,
+      unlimitedAuditLogs: false,
+      enterpriseSSO: false,
+      apiAccess: true,
+      customPolicies: false,
+    },
+  },
   starter: {
     id: "starter",
     name: "Starter",
-    price: 999,
-    yearlyPrice: 9990,
+    price: 49,
+    yearlyPrice: 490,
     currency: "INR",
     interval: "monthly",
     features: {
@@ -52,8 +72,8 @@ const PLANS = {
   professional: {
     id: "professional",
     name: "Professional",
-    price: 2999,
-    yearlyPrice: 29990,
+    price: 149,
+    yearlyPrice: 1490,
     currency: "INR",
     interval: "monthly",
     features: {
@@ -72,8 +92,8 @@ const PLANS = {
   enterprise: {
     id: "enterprise",
     name: "Enterprise",
-    price: 4999,
-    yearlyPrice: 49990,
+    price: 499,
+    yearlyPrice: 4990,
     currency: "INR",
     interval: "monthly",
     features: {
@@ -194,7 +214,7 @@ interface AnalyticsData {
 export default function BillingPage() {
   const { user } = useAuth()
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
-  const [currentPlan, setCurrentPlan] = useState<PlanId>("starter")
+  const [currentPlan, setCurrentPlan] = useState<PlanId>("trial")
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [usage, setUsage] = useState<UsageData | null>(null)
@@ -220,11 +240,12 @@ export default function BillingPage() {
       if (subRes.status === "fulfilled" && subRes.value?.subscription) {
         setSubscription(subRes.value.subscription)
         const planMap: Record<string, PlanId> = {
+          "plan_trial": "trial",
           "plan_starter": "starter",
           "plan_professional": "professional",
           "plan_enterprise": "enterprise",
         }
-        setCurrentPlan(planMap[subRes.value.subscription.plan_id] ?? "starter")
+        setCurrentPlan(planMap[subRes.value.subscription.plan_id] ?? "trial")
       }
 
       if (invRes.status === "fulfilled" && invRes.value?.invoices) {
@@ -375,11 +396,11 @@ export default function BillingPage() {
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-text-primary">
-              {formatPrice(billingCycle === "yearly" ? PLANS[currentPlan].yearlyPrice / 100 : PLANS[currentPlan].price / 100)}
+              {formatPrice(billingCycle === "yearly" ? PLANS[currentPlan].yearlyPrice : PLANS[currentPlan].price)}
               <span className="text-sm font-normal text-text-muted">/month</span>
             </p>
             {billingCycle === "yearly" && (
-              <p className="text-xs text-status-low">Billed yearly: {formatPrice(PLANS[currentPlan].yearlyPrice / 100)}</p>
+              <p className="text-xs text-status-low">Billed yearly: {formatPrice(PLANS[currentPlan].yearlyPrice)}</p>
             )}
           </div>
         </div>
@@ -403,7 +424,7 @@ export default function BillingPage() {
             <thead>
               <tr className="border-b border-border-subtle">
                 <th className="text-left py-3 px-4 font-medium text-text-secondary">Feature</th>
-                {(["starter", "professional", "enterprise"] as PlanId[]).map((pid) => (
+                {(["trial", "starter", "professional", "enterprise"] as PlanId[]).map((pid) => (
                   <th key={pid} className="text-center py-3 px-4 font-medium text-text-primary">
                     {PLANS[pid].name}
                   </th>

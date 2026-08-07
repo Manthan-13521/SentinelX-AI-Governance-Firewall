@@ -25,7 +25,7 @@ export async function registerBillingRoutes(app: FastifyInstance): Promise<void>
   app.post("/api/billing/create-order", { preHandler: authMiddleware }, async (request, reply) => {
     const body = request.body as {
       planId: keyof typeof PLANS
-      billingCycle: "monthly" | "yearly"
+      billingCycle: "monthly" | "yearly" | "one_time"
     }
 
     const plan = PLANS[body.planId]
@@ -33,7 +33,20 @@ export async function registerBillingRoutes(app: FastifyInstance): Promise<void>
       return reply.code(400).send({ error: "Invalid plan" })
     }
 
-    const amount = body.billingCycle === "yearly" ? plan.price * 10 : plan.price
+    let amount: number
+    switch (body.billingCycle) {
+      case "yearly":
+        amount = Math.round(plan.price * 10) // ~10 months = 2 months free
+        break
+      case "one_time":
+        amount = plan.price
+        break
+      case "monthly":
+      default:
+        amount = plan.price
+        break
+    }
+
     const order = await createOrder({
       amount,
       currency: plan.currency,
@@ -49,7 +62,7 @@ export async function registerBillingRoutes(app: FastifyInstance): Promise<void>
       return reply.code(500).send({ error: "Failed to create order" })
     }
 
-    return { order, plan }
+    return { order, plan, amount }
   })
 
   app.post("/api/billing/create-subscription", { preHandler: authMiddleware }, async (request, reply) => {
