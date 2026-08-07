@@ -31,6 +31,14 @@ const PORT = Number(process.env.PORT) || 8080;
 
 const envReport = validateEnv();
 
+console.log('--- STARTUP DIAGNOSTICS ---');
+console.log({
+  PORT: process.env.PORT,
+  HOST: process.env.HOST,
+  NODE_ENV: process.env.NODE_ENV,
+});
+console.log('---------------------------');
+
 const fastify = Fastify({
   logger: {
     level: 'info',
@@ -40,6 +48,26 @@ const fastify = Fastify({
       censor: '[REDACTED]',
     },
   },
+});
+
+fastify.addHook('onRequest', async (request, reply) => {
+  console.log(
+    '[REQUEST START]',
+    request.method,
+    request.url,
+    'host:', request.headers.host,
+    'x-forwarded-for:', request.headers['x-forwarded-for'],
+    'x-forwarded-proto:', request.headers['x-forwarded-proto']
+  );
+});
+
+fastify.addHook('onResponse', async (request, reply) => {
+  console.log(
+    '[REQUEST END]',
+    request.method,
+    request.url,
+    reply.statusCode
+  );
 });
 
 const ALLOWED_ORIGINS = [
@@ -821,6 +849,10 @@ const start = async () => {
 
   try {
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
+    const address = fastify.server.address();
+    console.log('--- SERVER BOUND ---');
+    console.log('server.address():', address);
+    console.log('--------------------');
     fastify.log.info(`🚀 SentinelX API listening on http://localhost:${PORT}`);
     
     // Keep process alive and handle background tasks safely
