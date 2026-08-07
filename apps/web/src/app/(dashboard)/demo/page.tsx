@@ -25,7 +25,7 @@ import {
   Zap,
 } from "lucide-react"
 import { api } from "@/lib/api"
-import type { PipelineResult } from "@/types"
+import type { PipelineResult, DetectedSecret, PolicyViolation } from "@/types"
 import { Badge, DecisionBadge, RiskGauge, SeverityBadge } from "@/components/ui/primitives"
 import { Confetti } from "@/components/ui/confetti"
 import { DecisionExplanation } from "@/components/ui/explainable-ai"
@@ -61,6 +61,254 @@ const STAGE_STEPS = [
   "Audit Logger",
   "Memory",
 ]
+
+// Mock scan function for offline/demo mode
+function mockScan(prompt: string, provider: string): PipelineResult {
+  const now = new Date().toISOString()
+  const pipelineId = `pipe_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+  const auditLogId = `audit_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+  
+  const secrets: DetectedSecret[] = []
+  const violations: PolicyViolation[] = []
+  let riskScore = 0
+  let decision: PipelineResult["decision"] = "ALLOW"
+  let threatLevel: PipelineResult["threatLevel"] = "SAFE"
+  let rewrittenPrompt: string | null = null
+  
+  if (prompt.includes("AKIAIOSFODNN7EXAMPLE")) {
+    secrets.push({
+      type: "aws-access-key",
+      label: "AWS Access Key",
+      match: "AKIAIOSFODNN7EXAMPLE",
+      redacted: "AKIA****EXAMPLE",
+      position: { start: prompt.indexOf("AKIAIOSFODNN7EXAMPLE"), end: prompt.indexOf("AKIAIOSFODNN7EXAMPLE") + 20 },
+      severity: "CRITICAL",
+      confidence: 0.99
+    })
+    violations.push({
+      policyId: "pol-infra-secrets",
+      policyName: "Infrastructure Secret Exposure",
+      regulation: "SOC 2",
+      category: "Infrastructure",
+      severity: "CRITICAL",
+      ruleId: "rule-aws-key",
+      reason: "AWS access key detected in prompt — credential exposure risk",
+      recommendation: "Remove credentials before sending to model; rotate exposed keys immediately"
+    })
+    riskScore = 95
+  }
+  
+  if (prompt.includes("mongodb+srv://") || prompt.includes("mongodb://")) {
+    const match = prompt.match(/mongodb[\+srv]?:\/\/[^\s]+/)
+    if (match) {
+      secrets.push({
+        type: "mongodb-uri",
+        label: "MongoDB Connection String",
+        match: match[0],
+        redacted: "mongodb://****:****@cluster0.mongodb.net/prod",
+        position: { start: match.index!, end: match.index! + match[0].length },
+        severity: "CRITICAL",
+        confidence: 0.98
+      })
+      violations.push({
+        policyId: "pol-db-creds",
+        policyName: "Database Credential Exposure",
+        regulation: "PCI DSS",
+        category: "Infrastructure",
+        severity: "CRITICAL",
+        ruleId: "rule-mongo-uri",
+        reason: "Database connection string with credentials exposed",
+        recommendation: "Use environment variables for database credentials; never hardcode in prompts"
+      })
+      riskScore = Math.max(riskScore, 90)
+    }
+  }
+  
+  if (prompt.includes("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9")) {
+    const match = prompt.match(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/)
+    if (match) {
+      secrets.push({
+        type: "jwt-token",
+        label: "JWT Token",
+        match: match[0],
+        redacted: "eyJ****.[REDACTED].[REDACTED]",
+        position: { start: match.index!, end: match.index! + match[0].length },
+        severity: "HIGH",
+        confidence: 0.95
+      })
+      violations.push({
+        policyId: "pol-auth-tokens",
+        policyName: "Authentication Token Exposure",
+        regulation: "GDPR",
+        category: "Authentication",
+        severity: "HIGH",
+        ruleId: "rule-jwt",
+        reason: "JWT token with admin claims exposed in prompt",
+        recommendation: "Never share JWT tokens; use short-lived tokens with minimal scopes"
+      })
+      riskScore = Math.max(riskScore, 75)
+    }
+  }
+  
+  if (prompt.includes("4242 4242 4242 4242")) {
+    secrets.push({
+      type: "credit-card",
+      label: "Credit Card Number",
+      match: "4242 4242 4242 4242",
+      redacted: "4242 **** **** 4242",
+      position: { start: prompt.indexOf("4242 4242 4242 4242"), end: prompt.indexOf("4242 4242 4242 4242") + 19 },
+      severity: "CRITICAL",
+      confidence: 0.99
+    })
+    violations.push({
+      policyId: "pol-pci-dss",
+      policyName: "PCI DSS Card Data Protection",
+      regulation: "PCI DSS",
+      category: "Financial",
+      severity: "CRITICAL",
+      ruleId: "rule-credit-card",
+      reason: "Full credit card number with CVV and expiry detected",
+      recommendation: "Block transmission; tokenize card data; never send raw PAN to LLMs"
+    })
+    riskScore = Math.max(riskScore, 98)
+  }
+  
+  if (prompt.includes("AIzaSyD9cW8jP4fZ2vE3rT6yU1iL0kM7nB5qXvS8")) {
+    secrets.push({
+      type: "google-api-key",
+      label: "Google API Key",
+      match: "AIzaSyD9cW8jP4fZ2vE3rT6yU1iL0kM7nB5qXvS8",
+      redacted: "AIza****XvS8",
+      position: { start: prompt.indexOf("AIzaSyD9cW8jP4fZ2vE3rT6yU1iL0kM7nB5qXvS8"), end: prompt.indexOf("AIzaSyD9cW8jP4fZ2vE3rT6yU1iL0kM7nB5qXvS8") + 39 },
+      severity: "HIGH",
+      confidence: 0.95
+    })
+    violations.push({
+      policyId: "pol-api-keys",
+      policyName: "API Key Exposure",
+      regulation: "ISO 27001",
+      category: "Infrastructure",
+      severity: "HIGH",
+      ruleId: "rule-google-api-key",
+      reason: "Google API key exposed in source code",
+      recommendation: "Store API keys in secret managers; restrict key permissions and rotate regularly"
+    })
+    riskScore = Math.max(riskScore, 70)
+  }
+  
+  if (prompt.includes("john.carter@acme-corp.com") || prompt.includes("+91-98765-43210")) {
+    if (prompt.includes("john.carter@acme-corp.com")) {
+      secrets.push({
+        type: "email",
+        label: "Email Address",
+        match: "john.carter@acme-corp.com",
+        redacted: "john.c****@acme-corp.com",
+        position: { start: prompt.indexOf("john.carter@acme-corp.com"), end: prompt.indexOf("john.carter@acme-corp.com") + 25 },
+        severity: "MEDIUM",
+        confidence: 0.9
+      })
+    }
+    if (prompt.includes("+91-98765-43210")) {
+      secrets.push({
+        type: "phone",
+        label: "Phone Number",
+        match: "+91-98765-43210",
+        redacted: "+91-****-43210",
+        position: { start: prompt.indexOf("+91-98765-43210"), end: prompt.indexOf("+91-98765-43210") + 15 },
+        severity: "MEDIUM",
+        confidence: 0.9
+      })
+    }
+    violations.push({
+      policyId: "pol-gdpr-pii",
+      policyName: "GDPR Personal Data Protection",
+      regulation: "GDPR",
+      category: "PII",
+      severity: "HIGH",
+      ruleId: "rule-pii",
+      reason: "Employee PII (email, phone, salary) detected in HR data",
+      recommendation: "Anonymize personal data before processing; apply data minimization principles"
+    })
+    riskScore = Math.max(riskScore, 65)
+  }
+  
+  if (prompt.includes("patient A-2231") || prompt.includes("Metformin")) {
+    secrets.push({
+      type: "phi",
+      label: "Protected Health Information",
+      match: "patient A-2231 diagnosed with hypertension, prescribed Metformin 500mg",
+      redacted: "patient [REDACTED] diagnosed with [REDACTED], prescribed [REDACTED]",
+      position: { start: prompt.indexOf("patient"), end: prompt.length },
+      severity: "HIGH",
+      confidence: 0.93
+    })
+    violations.push({
+      policyId: "pol-hipaa",
+      policyName: "HIPAA PHI Protection",
+      regulation: "HIPAA",
+      category: "Healthcare",
+      severity: "HIGH",
+      ruleId: "rule-phi",
+      reason: "Patient identifier and medical diagnosis/prescription exposed",
+      recommendation: "De-identify PHI per HIPAA Safe Harbor; use synthetic data for analysis"
+    })
+    riskScore = Math.max(riskScore, 80)
+  }
+  
+  if (secrets.length === 0) {
+    riskScore = 5
+    threatLevel = "SAFE"
+    decision = "ALLOW"
+  } else if (riskScore >= 80) {
+    threatLevel = "CRITICAL"
+    decision = "BLOCK"
+  } else if (riskScore >= 60) {
+    threatLevel = "HIGH"
+    decision = "BLOCK"
+  } else if (riskScore >= 35) {
+    threatLevel = "MEDIUM"
+    decision = "REWRITE"
+  } else {
+    threatLevel = "LOW"
+    decision = "FLAG"
+  }
+  
+  if (decision === "REWRITE" || decision === "BLOCK") {
+    let rewritten = prompt
+    for (const secret of secrets) {
+      rewritten = rewritten.replace(secret.match, secret.redacted)
+    }
+    rewrittenPrompt = rewritten
+  }
+  
+  const agentTrace = [
+    { agent: "inspector-agent", status: "COMPLETED" as const, confidence: 0.96, executionTimeMs: 12, startedAt: now },
+    { agent: "secret-detection-agent", status: "COMPLETED" as const, confidence: 0.94, executionTimeMs: 8, startedAt: now },
+    { agent: "policy-engine", status: "COMPLETED" as const, confidence: 0.98, executionTimeMs: 5, startedAt: now },
+    { agent: "risk-engine", status: "COMPLETED" as const, confidence: 0.92, executionTimeMs: 15, startedAt: now },
+    { agent: "prompt-rewriter", status: rewrittenPrompt ? "COMPLETED" as const : "SKIPPED" as const, confidence: 0.89, executionTimeMs: 18, startedAt: now },
+    { agent: "llm-adapter", status: decision === "BLOCK" ? "SKIPPED" as const : "COMPLETED" as const, confidence: 0.95, executionTimeMs: 3, startedAt: now },
+    { agent: "audit-logger", status: "COMPLETED" as const, confidence: 1.0, executionTimeMs: 2, startedAt: now },
+    { agent: "memory-agent", status: "COMPLETED" as const, confidence: 0.97, executionTimeMs: 4, startedAt: now },
+  ]
+  
+  return {
+    pipelineId,
+    status: decision === "BLOCK" ? "BLOCKED" : decision === "REWRITE" ? "REWRITTEN" : "COMPLETED",
+    decision,
+    riskScore,
+    threatLevel,
+    violations,
+    secrets,
+    originalPrompt: prompt,
+    rewrittenPrompt,
+    agentTrace,
+    auditLogId,
+    provider,
+    model: "gpt-4o-mini",
+    latencyMs: 120 + Math.floor(Math.random() * 80),
+  }
+}
 
 interface StepState {
   done: boolean
@@ -166,7 +414,13 @@ export default function DemoModePage() {
 
       await new Promise((r) => setTimeout(r, scenario.prompt.length * 2 + 200))
 
-      const res = await api.scan(scenario.prompt, "openai")
+      let res: PipelineResult
+      try {
+        res = await api.scan(scenario.prompt, "openai")
+      } catch (apiError) {
+        console.warn("API scan failed, using mock:", apiError)
+        res = mockScan(scenario.prompt, "openai")
+      }
       setCurrentResult(res)
       setResults((prev) => ({ ...prev, [scenario.id]: res }))
       toast({ kind: "live", title: `${scenario.label} intercepted`, desc: `${res.decision} · risk ${res.riskScore}/100 · ${res.secrets.length} secrets` })
