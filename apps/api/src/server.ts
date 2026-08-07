@@ -106,7 +106,7 @@ await fastify.register(import('@fastify/rate-limit'), {
 });
 
 const io = new Server(fastify.server, {
-  cors: { origin: process.env.WEB_ORIGIN || 'http://localhost:3000' },
+  cors: { origin: ALLOWED_ORIGINS, credentials: true },
 });
 
 io.use((socket, next) => {
