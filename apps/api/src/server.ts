@@ -784,11 +784,21 @@ const start = async () => {
   }
 
   // Prevent process exit on unhandled errors
-  process.on('unhandledRejection', (reason) => {
-    fastify.log.error({ err: reason }, 'Unhandled Rejection');
+  process.on('unhandledRejection', (reason, promise) => {
+    fastify.log.error({ err: reason, promise }, 'Unhandled Rejection');
   });
   process.on('uncaughtException', (err) => {
     fastify.log.error({ err }, 'Uncaught Exception');
+  });
+  process.on('SIGTERM', async () => {
+    fastify.log.info('SIGTERM received, closing gracefully');
+    await fastify.close();
+    process.exit(0);
+  });
+  process.on('SIGINT', async () => {
+    fastify.log.info('SIGINT received, closing gracefully');
+    await fastify.close();
+    process.exit(0);
   });
 
   try {
