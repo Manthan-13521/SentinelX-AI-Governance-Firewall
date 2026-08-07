@@ -10,6 +10,7 @@ export default auth((req) => {
     req.nextUrl.pathname.startsWith("/favicon") || 
     req.nextUrl.pathname.startsWith("/manifest") || 
     req.nextUrl.pathname.startsWith("/pricing") ||
+    req.nextUrl.pathname.startsWith("/signup") ||
     req.nextUrl.pathname.startsWith("/legal/") ||
     req.nextUrl.pathname.startsWith("/contact") ||
     req.nextUrl.pathname.startsWith("/support") ||
