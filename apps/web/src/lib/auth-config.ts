@@ -96,6 +96,27 @@ function localDemoLogin(email: string): { id: string; email: string; name: strin
   }
 }
 
+const userStore = new Map<string, { email: string; password: string; name: string; role: string }>()
+
+export function hashPassword(password: string): string {
+  return Buffer.from(password).toString("base64")
+}
+
+export function verifyPassword(password: string, hash: string): boolean {
+  return hashPassword(password) === hash
+}
+
+export async function createUser(email: string, password: string, name: string, role = "employee") {
+  const hashed = hashPassword(password)
+  const user = { email: email.toLowerCase(), password: hashed, name, role }
+  userStore.set(email.toLowerCase(), user)
+  return user
+}
+
+export async function getUser(email: string) {
+  return userStore.get(email.toLowerCase())
+}
+
 const authConfig: NextAuthConfig = {
   providers: [
     GoogleProvider({
@@ -155,6 +176,30 @@ const authConfig: NextAuthConfig = {
           role: demo.role,
           picture: null,
           token: `demo-${email}`,
+          org: DEMO_ORG,
+        }
+      },
+    }),
+    CredentialsProvider({
+      id: "email-password",
+      name: "Email/Password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null
+        const email = (credentials.email as string).toLowerCase()
+        const password = credentials.password as string
+        const user = await getUser(email)
+        if (!user || !verifyPassword(password, user.password)) return null
+        return {
+          id: `user-${email.replace(/[^a-z0-9]/gi, "")}`,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          picture: null,
+          token: `user-${email}`,
           org: DEMO_ORG,
         }
       },

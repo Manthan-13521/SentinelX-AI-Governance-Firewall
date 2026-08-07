@@ -178,6 +178,12 @@ export default function LoginPage() {
           <p className="mt-8 text-center text-[10px] leading-relaxed text-text-muted">
             Protected by enterprise SSO · MFA enforced · Session secured with httpOnly cookies
           </p>
+          <p className="mt-6 text-center text-sm text-text-muted">
+            Don't have an account?{" "}
+            <a href="/signup" className="text-accent-light hover:underline font-medium">
+              Create an account
+            </a>
+          </p>
         </div>
       </div>
     </div>
