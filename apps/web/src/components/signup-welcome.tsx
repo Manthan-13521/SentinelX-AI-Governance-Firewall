@@ -1,13 +1,13 @@
 "use client"
 
-import { useSearchParams } from "next/navigation"
 import { Sparkles, AlertCircle } from "lucide-react"
 
-export function SignupWelcomeBanner() {
-  const searchParams = useSearchParams()
-  const showSignupWelcome = searchParams.get("signup") === "true"
+interface SignupWelcomeBannerProps {
+  show: boolean
+}
 
-  if (!showSignupWelcome) return null
+export function SignupWelcomeBanner({ show }: SignupWelcomeBannerProps) {
+  if (!show) return null
 
   return (
     <div className="mb-6 p-4 rounded-xl bg-status-low/10 border border-status-low/20 animate-in slide-in-from-top-4 duration-300">
