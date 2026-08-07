@@ -116,7 +116,7 @@ export function emitScanEvent(result: unknown) {
 
 const pipeline = new SentinelPipeline((trace) => emitAgentEvent(trace));
 
-await seedDemoDataIfEmpty().catch((err) => {
+seedDemoDataIfEmpty().catch((err) => {
   fastify.log.error({ err }, 'Seed failed, continuing without demo data');
 });
 
