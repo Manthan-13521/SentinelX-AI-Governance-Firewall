@@ -64,7 +64,8 @@ export default function SignupPage() {
         return
       }
       
-      router.push("/dashboard")
+      // Redirect to pricing page to select a plan
+      router.push("/pricing?signup=true")
     } catch {
       setError("An unexpected error occurred")
       setLoading(false)
