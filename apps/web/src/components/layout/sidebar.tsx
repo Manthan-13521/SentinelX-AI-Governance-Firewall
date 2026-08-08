@@ -25,6 +25,8 @@ import {
   Cpu,
   BrainCircuit,
   Flame,
+  Users,
+  Key,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -51,6 +53,8 @@ const navigation = [
   { key: "audit", name: "Audit Logs", href: "/audit", icon: ClipboardCheck },
   { key: "reports", name: "Reports", href: "/reports", icon: FileBarChart },
   { key: "compliance", name: "Compliance", href: "/compliance", icon: Scale },
+  { key: "admin", name: "Admin Control Center", href: "/admin", icon: Users },
+  { key: "developer", name: "Developer Portal", href: "/developer", icon: Key },
   { key: "system", name: "System", href: "/system", icon: Cpu },
   { key: "settings", name: "Settings", href: "/settings", icon: Settings },
 ]

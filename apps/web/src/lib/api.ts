@@ -226,6 +226,20 @@ export const api = {
   invoices: () => request<{ invoices: any[] }>("/billing/invoices"),
   billingUsage: () => request<any>("/billing/usage"),
   billingAnalytics: () => request<any>("/billing/analytics"),
+
+  // Employee API Key Management
+  listMyApiKeys: () => request<any[]>("/me/api-keys"),
+  createApiKey: (name: string) =>
+    request<{ success: boolean; apiKey: { id: string; name: string; prefix: string; secret: string; createdAt: string; warning: string } }>("/admin/api-keys", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  listAdminApiKeys: (organizationId?: string) =>
+    request<any[]>(`/admin/api-keys${organizationId ? `?organizationId=${organizationId}` : ""}`),
+  revokeApiKey: (id: string) =>
+    request<{ success: boolean }>(`/admin/api-keys/${id}/revoke`, { method: "POST" }),
+  rotateApiKey: (id: string) =>
+    request<{ success: boolean; apiKey: { id: string; name: string; prefix: string; secret: string; createdAt: string; warning: string } }>(`/admin/api-keys/${id}/rotate`, { method: "POST" }),
 };
 
 export const PROVIDERS = [

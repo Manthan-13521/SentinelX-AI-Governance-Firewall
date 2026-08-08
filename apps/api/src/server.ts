@@ -22,6 +22,10 @@ import { listProviderStatus } from './llm/providers';
 import { registerAuthRoutes } from './routes/auth';
 import { verifyToken } from './lib/auth';
 import { registerOpenRouterRoutes } from './routes/openrouter';
+import { registerApiKeyRoutes } from './routes/api-keys';
+import { registerGatewayRoutes } from './routes/gateway';
+import { registerGovernanceRoutes } from './routes/governance';
+import { registerAnalyticsRoutes } from './routes/analytics';
 
 function system(role: string): ChatMessage {
   return { role: 'system', content: role };
@@ -126,7 +130,11 @@ await registerAIRoutes(fastify);
 await registerIncidentRoutes(fastify);
 await registerThreatIntelRoutes(fastify);
 await registerAuthRoutes(fastify);
+await registerApiKeyRoutes(fastify);
+await registerGatewayRoutes(fastify);
 await registerOpenRouterRoutes(fastify);
+await registerGovernanceRoutes(fastify);
+await registerAnalyticsRoutes(fastify);
 
 fastify.get('/api/presence', async () => getPresence());
 

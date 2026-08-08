@@ -15,6 +15,7 @@ import {
   Gauge,
   Landmark,
   Lightbulb,
+  RefreshCw,
   Shield,
   ShieldCheck,
   ShieldAlert,

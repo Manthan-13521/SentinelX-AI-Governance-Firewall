@@ -110,7 +110,11 @@ function simulateCompletion(params: CompleteParams): CompleteResult {
   };
 }
 
+export let completeMock: ((params: CompleteParams) => Promise<CompleteResult>) | null = null;
+export function setCompleteMock(mock: typeof completeMock) { completeMock = mock; }
+
 export async function complete(params: CompleteParams): Promise<CompleteResult> {
+  if (completeMock) return completeMock(params);
   const startedAt = performance.now();
   const provider = params.provider;
   const model = resolveModel(provider, params.model);

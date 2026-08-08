@@ -11,6 +11,15 @@ interface MemModels {
   setting: any[];
   session: any[];
   riskEvent: any[];
+  apiKey: any[];
+  organization: any[];
+  aiRequest: any[];
+  usageLedger: any[];
+  budget: any[];
+  quota: any[];
+  rateLimitPolicy: any[];
+  employeeModelPermission: any[];
+  employeeProviderPermission: any[];
 }
 
 interface MemRecord {
@@ -30,6 +39,15 @@ const mem: MemModels = {
   setting: [],
   session: [],
   riskEvent: [],
+  apiKey: [],
+  organization: [],
+  aiRequest: [],
+  usageLedger: [],
+  budget: [],
+  quota: [],
+  rateLimitPolicy: [],
+  employeeModelPermission: [],
+  employeeProviderPermission: [],
 };
 
 let useMem = false;
@@ -69,9 +87,9 @@ function matchesWhere(rec: any, where?: Record<string, unknown>): boolean {
       if (!(value as any).in.includes(rec.decision)) return false;
       continue;
     }
-    if (key === 'timestamp') {
+    if (key === 'timestamp' || key === 'createdAt') {
       const gte = (value as any)?.gte;
-      if (gte && new Date(rec.timestamp).getTime() < new Date(gte).getTime()) return false;
+      if (gte && new Date(rec[key]).getTime() < new Date(gte).getTime()) return false;
       continue;
     }
     if (key === 'riskScore') {
@@ -172,10 +190,11 @@ export const store = {
       mem.user.push(rec);
       return rec;
     },
-    async findMany() {
+    async findMany(args?: any) {
       await init();
-      if (!useMem) return prisma.user.findMany();
-      return mem.user.map(({ password, ...rest }) => rest);
+      if (!useMem) return prisma.user.findMany(args);
+      let rows = memFindAll('user', args?.where);
+      return rows.map(({ password, ...rest }) => rest);
     },
     async findFirst(args: any) {
       await init();
@@ -315,6 +334,197 @@ export const store = {
       return rec;
     },
   },
+
+  apiKey: {
+    async create(args: any) {
+      await init();
+      if (!useMem) return prisma.apiKey.create(args);
+      const rec: MemRecord = {
+        id: newId(),
+        createdAt: today(),
+        updatedAt: today(),
+        lastUsedAt: null,
+        expiresAt: null,
+        revokedAt: null,
+        ...(args.data ?? args),
+      };
+      mem.apiKey.push(rec);
+      return rec;
+    },
+    async findFirst(args: any) {
+      await init();
+      if (!useMem) return prisma.apiKey.findFirst(args);
+      const rows = memFindAll('apiKey', args?.where);
+      return rows.length > 0 ? rows[0] : null;
+    },
+    async findUnique(args: { where: { id: string } }) {
+      await init();
+      if (!useMem) return prisma.apiKey.findUnique(args);
+      return mem.apiKey.find((k) => k.id === args.where.id) ?? null;
+    },
+    async findMany(args?: any) {
+      await init();
+      if (!useMem) {
+        const { where, select, orderBy } = args ?? {};
+        return prisma.apiKey.findMany({ where, select, orderBy });
+      }
+      let rows = memFindAll('apiKey', args?.where);
+      if (args?.orderBy?.createdAt === 'desc') {
+        rows = rows.sort((a, b) => new Date(String(b.createdAt)).getTime() - new Date(String(a.createdAt)).getTime());
+      }
+      if (args?.select) {
+        rows = rows.map((r) => {
+          const out: any = {};
+          for (const k of Object.keys(args.select)) out[k] = r[k];
+          return out;
+        });
+      }
+      return rows;
+    },
+    async update(args: any) {
+      await init();
+      if (!useMem) return prisma.apiKey.update(args);
+      const rec = mem.apiKey.find((k) => k.id === args.where.id);
+      if (rec) Object.assign(rec, { ...args.data, updatedAt: today() });
+      return rec ?? null;
+    },
+  },
+
+  organization: {
+    async create(args: any) {
+      await init();
+      if (!useMem) return prisma.organization.create(args);
+      const rec: MemRecord = { id: newId(), createdAt: today(), updatedAt: today(), ...(args.data ?? args) };
+      mem.organization.push(rec);
+      return rec;
+    },
+    async findFirst(args: any) {
+      await init();
+      if (!useMem) return prisma.organization.findFirst(args);
+      const rows = memFindAll('organization', args?.where);
+      return rows.length > 0 ? rows[0] : null;
+    },
+    async findUnique(args: { where: { id: string } }) {
+      await init();
+      if (!useMem) return prisma.organization.findUnique(args);
+      return mem.organization.find((o) => o.id === args.where.id) ?? null;
+    },
+  },
+
+  aiRequest: {
+    async create(args: any) {
+      await init();
+      if (!useMem) return prisma.aIRequest.create(args);
+      const rec: MemRecord = { id: newId(), createdAt: today(), ...(args.data ?? args) };
+      mem.aiRequest.push(rec);
+      return rec;
+    },
+    async findMany(args?: any) {
+      await init();
+      if (!useMem) return prisma.aIRequest.findMany(args ?? {});
+      let rows = memFindAll('aiRequest', args?.where);
+      if (args?.take) rows = rows.slice(0, args.take);
+      return rows;
+    },
+  },
+
+  usageLedger: {
+    async create(args: any) {
+      await init();
+      if (!useMem) return prisma.usageLedger.create(args);
+      const rec: MemRecord = { id: newId(), createdAt: today(), ...(args.data ?? args) };
+      mem.usageLedger.push(rec);
+      return rec;
+    },
+    async findMany(args?: any) {
+      await init();
+      if (!useMem) return prisma.usageLedger.findMany(args ?? {});
+      let rows = memFindAll('usageLedger', args?.where);
+      if (args?.orderBy?.createdAt === 'desc') {
+        rows = rows.sort((a, b) => new Date(String(b.createdAt)).getTime() - new Date(String(a.createdAt)).getTime());
+      }
+      if (args?.take) rows = rows.slice(0, args.take);
+      return rows;
+    },
+    async aggregate(args?: any) {
+      await init();
+      if (!useMem) return (prisma.usageLedger as any).aggregate(args ?? {});
+      const rows = memFindAll('usageLedger', args?.where);
+      return {
+        _sum: {
+          inputTokens:   rows.reduce((s: number, r: any) => s + (r.inputTokens ?? 0), 0),
+          outputTokens:  rows.reduce((s: number, r: any) => s + (r.outputTokens ?? 0), 0),
+          totalTokens:   rows.reduce((s: number, r: any) => s + (r.totalTokens ?? 0), 0),
+          estimatedCost: rows.reduce((s: number, r: any) => s + (r.estimatedCost ?? 0), 0),
+        },
+        _count: { id: rows.length },
+      };
+    },
+  },
+
+  employeeModelPermission: {
+    async create(args: any) {
+      await init();
+      if (!useMem) return prisma.employeeModelPermission.create(args);
+      const rec: MemRecord = { id: newId(), createdAt: today(), updatedAt: today(), ...(args.data ?? args) };
+      mem.employeeModelPermission.push(rec);
+      return rec;
+    },
+    async findFirst(args: any) {
+      await init();
+      if (!useMem) return prisma.employeeModelPermission.findFirst(args);
+      const rows = memFindAll('employeeModelPermission', args?.where);
+      return rows.length > 0 ? rows[0] : null;
+    }
+  },
+
+  employeeProviderPermission: {
+    async create(args: any) {
+      await init();
+      if (!useMem) return prisma.employeeProviderPermission.create(args);
+      const rec: MemRecord = { id: newId(), createdAt: today(), updatedAt: today(), ...(args.data ?? args) };
+      mem.employeeProviderPermission.push(rec);
+      return rec;
+    },
+    async findFirst(args: any) {
+      await init();
+      if (!useMem) return prisma.employeeProviderPermission.findFirst(args);
+      const rows = memFindAll('employeeProviderPermission', args?.where);
+      return rows.length > 0 ? rows[0] : null;
+    }
+  },
+
+  quota: {
+    async create(args: any) {
+      await init();
+      if (!useMem) return prisma.quota.create(args);
+      const rec: MemRecord = { id: newId(), createdAt: today(), updatedAt: today(), ...(args.data ?? args) };
+      mem.quota.push(rec);
+      return rec;
+    },
+    async findFirst(args: any) {
+      await init();
+      if (!useMem) return prisma.quota.findFirst(args);
+      const rows = memFindAll('quota', args?.where);
+      return rows.length > 0 ? rows[0] : null;
+    }
+  },
+
+  budget: {
+    async create(args: any) {
+      await init();
+      if (!useMem) return prisma.budget.create(args);
+      const rec: MemRecord = { id: newId(), createdAt: today(), updatedAt: today(), ...(args.data ?? args) };
+      mem.budget.push(rec);
+      return rec;
+    },
+    async findFirst(args: any) {
+      await init();
+      if (!useMem) return prisma.budget.findFirst(args);
+      const rows = memFindAll('budget', args?.where);
+      return rows.length > 0 ? rows[0] : null;
+    }
+  }
 };
 
 export type Store = typeof store;

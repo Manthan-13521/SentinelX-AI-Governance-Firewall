@@ -298,9 +298,10 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [d, a] = await Promise.all([api.dashboard(), api.agents()])
-      setStats(d)
-      setAgents(a)
+      const [dashRes, agentRes] = await Promise.allSettled([api.dashboard(), api.agents()])
+      if (dashRes.status === "fulfilled") setStats(dashRes.value)
+      else setStats(null)
+      if (agentRes.status === "fulfilled") setAgents(agentRes.value)
     } catch {
       setStats(null)
     } finally {
@@ -377,7 +378,7 @@ export default function DashboardPage() {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
         <ShieldAlert className="h-10 w-10 text-status-critical" />
-        <p className="text-sm text-text-secondary">Gateway unreachable</p>
+        <p className="text-sm text-text-secondary">SentinelX API temporarily unavailable</p>
         <button onClick={load} className="tech-chip cursor-pointer hover:border-accent">
           <RefreshCw className="h-3 w-3" /> Retry connection
         </button>

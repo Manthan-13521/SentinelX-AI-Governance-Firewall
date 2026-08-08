@@ -22,7 +22,7 @@ import {
   Users,
   FileDown,
 } from "lucide-react"
-import { api, PROVIDERS } from "@/lib/api"
+import { api, PROVIDERS, timeAgo } from "@/lib/api"
 import type { PolicyRecommendation } from "@/types"
 import { Badge, PageHeader, SectionTitle } from "@/components/ui/primitives"
 import { useToast } from "@/components/ui/toast"
@@ -120,11 +120,9 @@ export default function SettingsPage() {
     webhook: false,
     webhookUrl: "https://hooks.example.com/sentinelx",
   })
-  const [tokens, setTokens] = useState<Token[]>([
-    { id: "t1", label: "Production gateway", prefix: "sx_live_9f3a", scope: "scan + audit read", created: "Mar 2026", lastUsed: "2m ago" },
-    { id: "t2", label: "CI pipeline", prefix: "sx_live_4b1c", scope: "scan only", created: "Jan 2026", lastUsed: "18m ago" },
-    { id: "t3", label: "SOC automation", prefix: "sx_live_8d2e", scope: "audit read", created: "Nov 2025", lastUsed: "3h ago" },
-  ])
+  const [tokens, setTokens] = useState<Token[]>([])
+  const [tokensLoading, setTokensLoading] = useState(false)
+  const [newSecretOnce, setNewSecretOnce] = useState<{ id: string; secret: string; name: string } | null>(null)
   const [rolePerms, setRolePerms] = useState<Record<string, Record<string, boolean>>>({
     Admin: { "View audit": true, "Manage policies": true, "Manage users": true, "Configure gateway": true, "Export reports": true },
     Analyst: { "View audit": true, "Triage incidents": true, "View policies": true, "Generate reports": true },
@@ -152,6 +150,23 @@ export default function SettingsPage() {
     api.settings().then(setSettings).catch(() => undefined)
     api.llmStatus().then((s) => setLlmStatus({ configured: s.providers.filter((p) => p.configured).map((p) => p.id) })).catch(() => undefined)
   }, [])
+
+  const loadTokens = () => {
+    setTokensLoading(true)
+    api.listMyApiKeys()
+      .then((keys) => setTokens(keys.map((k: any) => ({
+        id: k.id,
+        label: k.name,
+        prefix: k.keyPrefix,
+        scope: k.scopes ? JSON.stringify(k.scopes) : "full access",
+        created: k.createdAt ? new Date(k.createdAt).toLocaleDateString([], { month: "short", year: "numeric" }) : "—",
+        lastUsed: k.lastUsedAt ? timeAgo(k.lastUsedAt) : "never",
+      }))))
+      .catch(() => undefined)
+      .finally(() => setTokensLoading(false))
+  }
+
+  useEffect(() => { if (tab === "tokens") loadTokens() }, [tab])
 
   const save = () => {
     setSaved(true)
@@ -184,15 +199,26 @@ export default function SettingsPage() {
     toast({ kind: "live", title: "Test notification sent", desc: `Delivery attempt to ${notifications.webhookUrl}` })
   }
 
-  const createToken = () => {
-    const id = `t-${Date.now()}`
-    setTokens((t) => [{ id, label: "New integration", prefix: `sx_live_${Math.random().toString(16).slice(2, 6)}`, scope: "scan + audit read", created: "just now", lastUsed: "never" }, ...t])
-    toast({ kind: "success", title: "API token created", desc: "Copy the token now — it will only be shown once." })
+  const createToken = async () => {
+    const name = prompt("Name for this API key:") || "New integration"
+    try {
+      const res = await api.createApiKey(name)
+      setNewSecretOnce({ id: res.apiKey.id, secret: res.apiKey.secret, name: res.apiKey.name })
+      loadTokens()
+      toast({ kind: "success", title: "API key created", desc: "Copy the key now — it will only be shown once." })
+    } catch {
+      toast({ kind: "warning", title: "Failed to create key", desc: "Could not create API key. Please try again." })
+    }
   }
 
-  const revokeToken = (id: string) => {
-    setTokens((t) => t.filter((x) => x.id !== id))
-    toast({ kind: "warning", title: "Token revoked", desc: "The token can no longer authenticate to the gateway." })
+  const revokeToken = async (id: string) => {
+    try {
+      await api.revokeApiKey(id)
+      loadTokens()
+      toast({ kind: "warning", title: "Token revoked", desc: "The token can no longer authenticate to the gateway." })
+    } catch {
+      toast({ kind: "warning", title: "Failed to revoke", desc: "Could not revoke the key. Please try again." })
+    }
   }
 
   const TABS: Array<{ id: typeof tab; label: string; icon: typeof Shield }> = [
@@ -585,6 +611,22 @@ export default function SettingsPage() {
 
         {tab === "tokens" && (
           <motion.div key="tokens" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="glass-card p-5">
+            {/* One-time secret reveal banner */}
+            {newSecretOnce && (
+              <div className="mb-5 rounded-lg border border-status-high/40 bg-status-high/10 p-4">
+                <p className="text-xs font-semibold text-status-high mb-1">⚠ Copy your API key now — it will not be shown again</p>
+                <p className="text-[11px] text-text-secondary mb-2">Key: <strong>{newSecretOnce.name}</strong></p>
+                <div className="flex items-center gap-2">
+                  <code className="mono flex-1 overflow-x-auto rounded border border-border-default bg-bg-secondary px-3 py-2 text-[11px] text-text-primary select-all">{newSecretOnce.secret}</code>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(newSecretOnce.secret); toast({ kind: "success", title: "Copied!", desc: "API key copied to clipboard." }) }}
+                    className="flex-shrink-0 rounded-md p-2 text-text-muted transition hover:bg-white/[0.06] hover:text-text-primary"
+                    aria-label="Copy secret"
+                  ><Copy className="h-4 w-4" /></button>
+                </div>
+                <button onClick={() => setNewSecretOnce(null)} className="mt-3 text-[10px] text-text-muted underline">I have copied it — dismiss</button>
+              </div>
+            )}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold">API Tokens</h3>
@@ -595,7 +637,12 @@ export default function SettingsPage() {
               </button>
             </div>
             <div className="space-y-2">
-              {tokens.map((t) => (
+              {tokensLoading ? (
+                <div className="py-8 text-center text-[11px] text-text-muted animate-pulse">Loading API keys…</div>
+              ) : tokens.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border-strong py-8 text-center text-[11px] text-text-muted">No API keys yet — click &quot;Create token&quot; to generate your first key.</p>
+              ) : (
+              tokens.map((t) => (
                 <motion.div key={t.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center gap-3 rounded-lg border border-border-default bg-white/[0.02] px-4 py-3">
                   <KeyRound className="h-4 w-4 text-accent-light" />
                   <div className="min-w-0 flex-1">
@@ -614,7 +661,8 @@ export default function SettingsPage() {
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </motion.div>
-              ))}
+              ))
+              )}
             </div>
           </motion.div>
         )}

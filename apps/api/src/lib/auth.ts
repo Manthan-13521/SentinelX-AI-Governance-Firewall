@@ -77,3 +77,65 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
   ;(request as any).user = payload
   return payload
 }
+
+export interface GatewayAuthPayload {
+  apiKeyId: string
+  userId: string
+  organizationId: string | null
+  scopes: any
+}
+
+// Fastify middleware for API Key authentication
+export async function apiKeyAuthMiddleware(request: FastifyRequest, reply: FastifyReply) {
+  const authHeader = request.headers.authorization
+  if (!authHeader?.startsWith("Bearer sx_live_")) {
+    return reply.code(401).send({ error: "Unauthorized" })
+  }
+  
+  const rawSecret = authHeader.slice(7)
+  const { hashIncomingKey } = await import("./api-keys")
+  const { store } = await import("./store")
+
+  const keyHash = hashIncomingKey(rawSecret)
+  
+  const apiKey = await store.apiKey.findFirst({
+    where: { keyHash }
+  })
+
+  if (!apiKey) {
+    return reply.code(401).send({ error: "Unauthorized" })
+  }
+
+  if (apiKey.status !== "ACTIVE") {
+    return reply.code(401).send({ error: "Unauthorized" })
+  }
+
+  if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
+    return reply.code(401).send({ error: "Unauthorized" })
+  }
+
+  if (apiKey.revokedAt && apiKey.revokedAt <= new Date()) {
+    return reply.code(401).send({ error: "Unauthorized" })
+  }
+
+  // Check if associated user exists and is active (optional, depending on user model)
+  const user = await store.user.findUnique({ where: { id: apiKey.userId as string } })
+  if (!user) {
+    return reply.code(401).send({ error: "Unauthorized" })
+  }
+
+  // Defer updating lastUsedAt to avoid blocking
+  store.apiKey.update({
+    where: { id: apiKey.id },
+    data: { lastUsedAt: new Date() }
+  }).catch(() => {})
+
+  const payload: GatewayAuthPayload = {
+    apiKeyId: apiKey.id as string,
+    userId: apiKey.userId as string,
+    organizationId: (apiKey.organizationId as string | null) || null,
+    scopes: apiKey.scopes as string[] | null
+  }
+
+  ;(request as any).gatewayAuth = payload
+}
