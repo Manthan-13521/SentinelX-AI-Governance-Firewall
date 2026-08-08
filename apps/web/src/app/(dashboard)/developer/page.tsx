@@ -18,7 +18,8 @@ export default function DeveloperPortal() {
   const fetchKeys = async () => {
     try {
       const token = localStorage.getItem("sentinelx-token");
-      const res = await fetch("/api/me/api-keys", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${apiUrl}/api/me/api-keys`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -36,7 +37,8 @@ export default function DeveloperPortal() {
     try {
       setLoading(true);
       const token = localStorage.getItem("sentinelx-token");
-      const res = await fetch("/api/admin/api-keys", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${apiUrl}/api/admin/api-keys`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ name: "Developer Key" })

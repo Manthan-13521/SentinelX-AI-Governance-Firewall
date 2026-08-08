@@ -10,6 +10,7 @@ import { RewriterAgent } from './rewriter';
 import { LLMAdapterAgent } from './llm-adapter';
 import { AuditLoggerAgent } from './audit-logger';
 import { MemoryAgent } from './memory';
+import { enforceSecurityPolicy } from '../lib/security';
 
 export interface PipelineRunOptions {
   userId?: string;
@@ -60,6 +61,84 @@ export class SentinelPipeline {
       notify(secretAgent.toTrace());
       const secrets = secretResult.output;
 
+      // ── CANONICAL SECURITY ENGINE (same as /v1/chat/completions) ────────────
+      // Runs prompt injection, jailbreak, credential exfiltration, PII, and
+      // secret detection all in one unified pass. This is the single source of
+      // truth for all security decisions. If this blocks, the LLM is NEVER called.
+      const canonicalSecurity = enforceSecurityPolicy([{ role: 'user', content: prompt }]);
+
+      if (canonicalSecurity.decision === 'BLOCK') {
+        const threatLevel = canonicalSecurity.riskScore >= 80 ? ThreatLevel.CRITICAL
+          : canonicalSecurity.riskScore >= 50 ? ThreatLevel.HIGH : ThreatLevel.MEDIUM;
+
+        notify({
+          agent: 'security-engine',
+          status: 'BLOCKED',
+          confidence: 1,
+          executionTimeMs: 0,
+          startedAt: new Date().toISOString(),
+          output: {
+            decision: 'BLOCK',
+            riskScore: canonicalSecurity.riskScore,
+            threats: canonicalSecurity.findings.map(f => ({ label: f.label, severity: f.severity, type: f.type })),
+          },
+        } as any);
+
+        notify({ agent: 'llm-adapter', status: 'SKIPPED', confidence: 1, executionTimeMs: 0, startedAt: new Date().toISOString() });
+
+        const injectionViolations: PolicyViolation[] = canonicalSecurity.findings.map(f => ({
+          policyId: `sentinelx-${f.type.toLowerCase()}`,
+          policyName: f.label,
+          regulation: 'SENTINELX_SECURITY',
+          severity: f.severity as any,
+          category: f.type,
+          reason: `${f.type} detected: ${f.label}`,
+          ruleId: `rule-${f.type.toLowerCase()}-${f.label.toLowerCase().replace(/\s+/g, '-')}`,
+          recommendation: 'Remove sensitive content before submitting.',
+        }));
+
+        const audit = new AuditLoggerAgent();
+        const auditResult = await audit.run({
+          pipelineId,
+          userId: options.userId,
+          ipAddress: options.ipAddress,
+          sessionId: options.sessionId,
+          prompt,
+          rewrittenPrompt: null,
+          violations: injectionViolations,
+          secrets,
+          riskScore: canonicalSecurity.riskScore,
+          threatLevel,
+          decision: Decision.BLOCK,
+          provider: null as any,
+          model: null as any,
+          latencyMs: Math.round(performance.now() - startedAt),
+          agentTrace: trace,
+        });
+
+        return {
+          pipelineId,
+          status: 'BLOCKED',
+          decision: Decision.BLOCK,
+          riskScore: canonicalSecurity.riskScore,
+          threatLevel,
+          violations: injectionViolations,
+          secrets,
+          originalPrompt: prompt,
+          rewrittenPrompt: null,
+          agentTrace: trace,
+          auditLogId: auditResult.output.id,
+          provider: null as any,
+          model: null as any,
+          latencyMs: Math.round(performance.now() - startedAt),
+        };
+      }
+
+      // For REDACT: use sanitized messages from canonical engine
+      const effectivePrompt = canonicalSecurity.decision === 'REDACT'
+        ? (canonicalSecurity.sanitizedMessages[0]?.content ?? prompt)
+        : prompt;
+
       const policyAgent = new PolicyEngineAgent();
       const policyResult = await policyAgent.run(secrets);
       await step();
@@ -77,9 +156,17 @@ export class SentinelPipeline {
       notify(riskAgent.toTrace());
       const risk = riskResult.output;
 
+      // Merge canonical security risk score — only take the max when the canonical engine also BLOCKs.
+      // For REDACT (PII-only), we do NOT inflate risk: PII should be sanitized and allowed, not blocked.
+      if (canonicalSecurity.decision === 'BLOCK' && canonicalSecurity.riskScore > risk.score) {
+        risk.score = canonicalSecurity.riskScore;
+        risk.threatLevel =
+          risk.score >= 80 ? ThreatLevel.CRITICAL : risk.score >= 60 ? ThreatLevel.HIGH : risk.score >= 35 ? ThreatLevel.MEDIUM : risk.score >= 15 ? ThreatLevel.LOW : ThreatLevel.SAFE;
+      }
+
       const adaptive = new AdaptiveRiskAgent();
       const adaptiveResult = await adaptive.run({
-        prompt,
+        prompt: effectivePrompt,
         risk,
         department: options.userId,
       });
@@ -97,10 +184,10 @@ export class SentinelPipeline {
       }
 
       const rewriter = new RewriterAgent();
-      const rewriterResult = await rewriter.run({ prompt, secrets, risk });
+      const rewriterResult = await rewriter.run({ prompt: effectivePrompt, secrets, risk });
       await step();
       notify(rewriter.toTrace());
-      const rewrittenPrompt = rewriterResult.output.changed ? rewriterResult.output.rewritten : prompt;
+      const rewrittenPrompt = rewriterResult.output.changed ? rewriterResult.output.rewritten : effectivePrompt;
 
       let decision = this.decide(risk.threatLevel, violations, secrets);
       if (secrets.length === 0 && risk.threatLevel === ThreatLevel.SAFE) decision = Decision.ALLOW;
