@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { api, ApiError } from "@/lib/api"
 
 interface ServiceCard {
   name: string
@@ -31,18 +32,18 @@ interface ServiceCard {
 const SERVICE_CONFIG: Array<{
   name: string
   icon: React.ComponentType<{ className?: string }>
-  endpoint: string
+  serviceId: string
   color: string
 }> = [
-  { name: "MongoDB", icon: Database, endpoint: "/api/health/mongodb", color: "text-green-500" },
-  { name: "Redis", icon: HardDrive, endpoint: "/api/health/redis", color: "text-red-500" },
-  { name: "Cloudinary", icon: Globe, endpoint: "/api/health/cloudinary", color: "text-blue-500" },
-  { name: "Slack", icon: Activity, endpoint: "/api/health/slack", color: "text-purple-500" },
-  { name: "Resend", icon: Activity, endpoint: "/api/health/resend", color: "text-orange-500" },
-  { name: "OpenRouter", icon: Zap, endpoint: "/api/health/openrouter", color: "text-yellow-500" },
-  { name: "Sentry", icon: AlertTriangle, endpoint: "/api/health/sentry", color: "text-pink-500" },
-  { name: "PostHog", icon: Activity, endpoint: "/api/health/posthog", color: "text-cyan-500" },
-  { name: "System", icon: Server, endpoint: "/api/health/system", color: "text-indigo-500" },
+  { name: "MongoDB", icon: Database, serviceId: "mongodb", color: "text-green-500" },
+  { name: "Redis", icon: HardDrive, serviceId: "redis", color: "text-red-500" },
+  { name: "Cloudinary", icon: Globe, serviceId: "cloudinary", color: "text-blue-500" },
+  { name: "Slack", icon: Activity, serviceId: "slack", color: "text-purple-500" },
+  { name: "Resend", icon: Activity, serviceId: "resend", color: "text-orange-500" },
+  { name: "OpenRouter", icon: Zap, serviceId: "openrouter", color: "text-yellow-500" },
+  { name: "Sentry", icon: AlertTriangle, serviceId: "sentry", color: "text-pink-500" },
+  { name: "PostHog", icon: Activity, serviceId: "posthog", color: "text-cyan-500" },
+  { name: "System", icon: Server, serviceId: "system", color: "text-indigo-500" },
 ]
 
 export default function ExecutiveSecurityCenter() {
@@ -68,16 +69,13 @@ export default function ExecutiveSecurityCenter() {
   const fetchService = async (config: typeof SERVICE_CONFIG[0]) => {
     try {
       const start = performance.now()
-      const res = await fetch(config.endpoint)
+      const data = await api.health(config.serviceId)
       const latency = Math.round(performance.now() - start)
-      const data = await res.json()
 
       let status: "healthy" | "degraded" | "down" = "healthy"
       let metrics: ServiceCard["metrics"] = []
 
-      if (!res.ok) {
-        status = "down"
-      } else if (data.available === false || data.healthy === false) {
+      if (data.available === false || data.healthy === false) {
         status = "degraded"
       }
 
@@ -149,7 +147,6 @@ export default function ExecutiveSecurityCenter() {
           ]
           break
       }
-
       return {
         name: config.name,
         icon: config.icon,
@@ -157,12 +154,12 @@ export default function ExecutiveSecurityCenter() {
         metrics,
         lastCheck: new Date().toLocaleTimeString(),
       }
-    } catch {
+    } catch (error) {
       return {
         name: config.name,
         icon: config.icon,
         status: "down" as const,
-        metrics: [],
+        metrics: [{ label: "Error", value: "Service Unavailable" }],
         lastCheck: new Date().toLocaleTimeString(),
       }
     }

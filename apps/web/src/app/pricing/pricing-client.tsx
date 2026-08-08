@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth"
+import { api } from "@/lib/api"
 
 const PLANS = {
   trial: {
@@ -132,12 +133,7 @@ export default function PricingClient() {
     try {
       const plan = PLANS[planId]
       const cycle = plan.interval === "one_time" ? "one_time" : billingCycle
-      const res = await fetch("/api/billing/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId, billingCycle: cycle }),
-      })
-      const data = await res.json()
+      const data = await api.createOrder(planId, cycle)
       if (data.order && typeof window !== "undefined" && (window as any).Razorpay) {
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -152,16 +148,12 @@ export default function PricingClient() {
           },
           theme: { color: "#0f766e" },
           handler: async (response: any) => {
-            const verifyRes = await fetch("/api/billing/verify-payment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            })
-            if (verifyRes.ok) {
+            const verifyRes = await api.verifyPayment(
+              response.razorpay_order_id,
+              response.razorpay_payment_id,
+              response.razorpay_signature
+            )
+            if (verifyRes.success) {
               window.location.href = "/billing"
             }
           },

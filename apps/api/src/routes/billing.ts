@@ -185,6 +185,23 @@ export async function registerBillingRoutes(app: FastifyInstance): Promise<void>
     return { received: true }
   })
 
+  // Current user's subscription (no ID required)
+  app.get("/api/billing/subscription", { preHandler: authMiddleware }, async (request) => {
+    const user = (request as any).user
+    const userId = user?.sub ?? "demo"
+    // Return a demo active subscription — replace with real DB lookup when Razorpay subs are stored
+    return {
+      subscription: {
+        id: `sub_demo_${userId}`,
+        plan_id: "plan_enterprise",
+        status: "active",
+        current_period_start: Math.floor(Date.now() / 1000) - 86400 * 15,
+        current_period_end: Math.floor(Date.now() / 1000) + 86400 * 15,
+        quantity: 1,
+      },
+    }
+  })
+
   app.get("/api/billing/usage", { preHandler: authMiddleware }, async () => {
     // Demo usage data
     return {

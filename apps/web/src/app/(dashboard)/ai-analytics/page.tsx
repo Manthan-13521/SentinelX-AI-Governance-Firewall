@@ -13,6 +13,7 @@ import {
   ArrowDownRight,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
 
 interface MetricCard {
   title: string
@@ -101,13 +102,8 @@ export default function AIAnalyticsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("/api/analytics")
-        if (res.ok) {
-          const json = await res.json()
-          setData(json)
-        } else {
-          setData(MOCK_DATA)
-        }
+        const json = await api.analytics()
+        setData(json as unknown as AnalyticsData)
       } catch {
         setData(MOCK_DATA)
       } finally {

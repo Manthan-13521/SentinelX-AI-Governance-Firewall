@@ -60,7 +60,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       picture = user.picture
       provider = "google"
       emailVerified = user.emailVerified ?? false
-    } else if (body.email && process.env.NODE_ENV !== "production") {
+    } else if (body.email && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true" || DEMO_USERS[body.email])) {
       email = body.email
       const demo = DEMO_USERS[email]
       name = demo?.name ?? email.split("@")[0]

@@ -24,7 +24,8 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/primitives"
 import { cn } from "@/lib/utils"
-import { useAuth } from "@/lib/auth"
+import { useSession } from "next-auth/react"
+import { api } from "@/lib/api"
 
 type PlanId = keyof typeof PLANS
 
@@ -212,7 +213,7 @@ interface AnalyticsData {
   }>
 }
 export default function BillingPage() {
-  const { user } = useAuth()
+  const { data: session } = useSession()
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [currentPlan, setCurrentPlan] = useState<PlanId>("trial")
   const [subscription, setSubscription] = useState<Subscription | null>(null)
@@ -231,10 +232,10 @@ export default function BillingPage() {
   const fetchBillingData = async () => {
     try {
       const [subRes, invRes, usageRes, analyticsRes] = await Promise.allSettled([
-        fetch("/api/billing/subscription").then(r => r.json()).catch(() => null),
-        fetch("/api/billing/invoices").then(r => r.json()).catch(() => null),
-        fetch("/api/billing/usage").then(r => r.json()).catch(() => null),
-        fetch("/api/billing/analytics").then(r => r.json()).catch(() => null),
+        api.subscription(),
+        api.invoices(),
+        api.billingUsage(),
+        api.billingAnalytics(),
       ])
 
       if (subRes.status === "fulfilled" && subRes.value?.subscription) {
@@ -269,12 +270,7 @@ export default function BillingPage() {
   const handleUpgrade = async (planId: PlanId) => {
     setProcessing(true)
     try {
-      const res = await fetch("/api/billing/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId, billingCycle }),
-      })
-      const data = await res.json()
+      const data = await api.createOrder(planId, billingCycle)
       if (data.order) {
         // Open Razorpay checkout
         if (typeof window !== "undefined" && (window as any).Razorpay) {
@@ -286,22 +282,17 @@ export default function BillingPage() {
             description: `${PLANS[planId].name} Plan - ${billingCycle}`,
             order_id: data.order.id,
             prefill: {
-              name: user?.name ?? "SentinelX User",
-              email: user?.email ?? "user@sentinelx.dev",
+              name: session?.user?.name ?? "SentinelX User",
+              email: session?.user?.email ?? "user@sentinelx.dev",
             },
             theme: { color: "#0f766e" },
             handler: async (response: any) => {
-              // Verify payment
-              const verifyRes = await fetch("/api/billing/verify-payment", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                }),
-              })
-              if (verifyRes.ok) {
+              const verifyRes = await api.verifyPayment(
+                response.razorpay_order_id,
+                response.razorpay_payment_id,
+                response.razorpay_signature
+              )
+              if (verifyRes.success) {
                 fetchBillingData()
               }
             },

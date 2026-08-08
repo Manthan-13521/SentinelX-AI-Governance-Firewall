@@ -32,6 +32,17 @@ function getAuthToken(): string | null {
   return getApiToken();
 }
 
+export class ApiError extends Error {
+  status: number;
+  code: string;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.code = status === 401 ? 'AUTH_REQUIRED' : status === 403 ? 'FORBIDDEN' : status === 404 ? 'NOT_FOUND' : status >= 500 ? 'SERVER_ERROR' : 'API_ERROR';
+    this.name = 'ApiError';
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -43,15 +54,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}/api${path}`, {
-    headers,
-    ...init,
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`API ${res.status}: ${body.slice(0, 200)}`);
+  try {
+    const res = await fetch(`${API_BASE}/api${path}`, {
+      headers,
+      ...init,
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      let msg = body;
+      try { msg = JSON.parse(body).error || body; } catch {}
+      throw new ApiError(res.status, msg || `HTTP ${res.status}`);
+    }
+    return (await res.json()) as T;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(0, 'NETWORK_ERROR');
   }
-  return res.json() as Promise<T>;
 }
 
 export const api = {
@@ -179,6 +197,25 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
+
+  // Health & System
+  health: (service: string) => request<any>(`/health/${service}`),
+
+  // Billing & Subscription
+  createOrder: (planId: string, billingCycle: string) =>
+    request<{ order: any; plan: any; amount: number }>("/billing/create-order", {
+      method: "POST",
+      body: JSON.stringify({ planId, billingCycle }),
+    }),
+  verifyPayment: (razorpay_order_id: string, razorpay_payment_id: string, razorpay_signature: string) =>
+    request<{ success: boolean; subscription?: any }>("/billing/verify-payment", {
+      method: "POST",
+      body: JSON.stringify({ razorpay_order_id, razorpay_payment_id, razorpay_signature }),
+    }),
+  subscription: () => request<any>("/billing/subscription"),
+  invoices: () => request<{ invoices: any[] }>("/billing/invoices"),
+  billingUsage: () => request<any>("/billing/usage"),
+  billingAnalytics: () => request<any>("/billing/analytics"),
 };
 
 export const PROVIDERS = [
