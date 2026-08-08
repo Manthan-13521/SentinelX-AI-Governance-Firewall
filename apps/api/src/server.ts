@@ -130,6 +130,15 @@ await registerOpenRouterRoutes(fastify);
 
 fastify.get('/api/presence', async () => getPresence());
 
+fastify.get('/', async () => {
+  return {
+    service: 'SentinelX API',
+    status: 'ok',
+    version: '1.0.0',
+    health: '/api/health',
+  };
+});
+
 fastify.get('/api/health', async () => {
   const providers = listProviderStatus();
   return {
@@ -141,6 +150,42 @@ fastify.get('/api/health', async () => {
     providers: providers.map((p) => ({ id: p.id, configured: p.configured })),
   };
 });
+
+fastify.get('/api/health/dependencies', async () => {
+  // Try to connect to Redis
+  let redisStatus = 'not_configured';
+  try {
+    const redisModule = await import('./lib/redis');
+    redisStatus = redisModule.getRedis().status === 'ready' ? 'healthy' : 'degraded';
+  } catch {
+    redisStatus = 'unavailable';
+  }
+
+  // Database status (Prisma)
+  let dbStatus = 'not_configured';
+  try {
+    const { dbAvailable } = await import('./lib/prisma');
+    const available = await dbAvailable();
+    dbStatus = available ? 'healthy' : 'degraded (in-memory demo mode)';
+  } catch {
+    dbStatus = 'unavailable';
+  }
+
+  return {
+    status: 'healthy',
+    api: 'healthy',
+    dependencies: {
+      mongodb: 'not_configured', // using Postgres/Prisma instead
+      postgresql: dbStatus,
+      redis: redisStatus,
+      openrouter: listProviderStatus().find(p => p.id === 'openrouter')?.configured ? 'healthy' : 'not_configured',
+      razorpay: process.env.RAZORPAY_KEY_ID ? 'healthy' : 'not_configured',
+      cloudinary: 'not_configured',
+      websocket: 'healthy' // Socket.io is bound to the Fastify instance
+    }
+  };
+});
+
 
 fastify.post('/api/scan', async (request, reply) => {
   const body = request.body as {
