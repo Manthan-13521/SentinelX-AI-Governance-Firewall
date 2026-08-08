@@ -226,11 +226,4 @@ export async function runSeed(): Promise<void> {
   console.log('✅ Seed complete');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runSeed()
-    .then(() => process.exit(0))
-    .catch((e) => {
-      console.error(e);
-      process.exit(1);
-    });
-}
+
