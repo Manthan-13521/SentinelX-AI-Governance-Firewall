@@ -300,7 +300,10 @@ export default function IntelligencePage() {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
         <ShieldAlert className="h-10 w-10 text-status-critical" />
-        <p className="text-sm text-text-secondary">Gateway unreachable</p>
+        <p className="text-sm text-text-secondary">API temporarily unavailable</p>
+        <button onClick={load} className="tech-chip cursor-pointer hover:border-accent">
+          <RefreshCw className="h-3 w-3" /> Retry connection
+        </button>
       </div>
     )
   }

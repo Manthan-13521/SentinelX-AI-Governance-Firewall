@@ -133,10 +133,10 @@ export default function ExecutivePage() {
   if (!stats) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
-        <Shield className="h-10 w-10 text-status-critical" />
-        <p className="text-sm text-text-secondary">Executive gateway unreachable</p>
+        <ShieldAlert className="h-10 w-10 text-status-critical" />
+        <p className="text-sm text-text-secondary">API temporarily unavailable</p>
         <button onClick={load} className="tech-chip cursor-pointer hover:border-accent">
-          <Zap className="h-3 w-3" /> Retry
+          <RefreshCw className="h-3 w-3" /> Retry connection
         </button>
       </div>
     )
