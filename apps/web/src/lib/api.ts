@@ -43,7 +43,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit & { timeout?: number }): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "cache-control": "no-cache",
@@ -54,11 +54,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  const timeoutMs = init?.timeout ?? 10000; // default 10s
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const res = await fetch(`${API_BASE}/api${path}`, {
       headers,
       ...init,
+      signal: controller.signal,
     });
+    clearTimeout(id);
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       let msg = body;
@@ -67,6 +73,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     return (await res.json()) as T;
   } catch (error) {
+    clearTimeout(id);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError(408, 'REQUEST_TIMEOUT');
+    }
     if (error instanceof ApiError) throw error;
     throw new ApiError(0, 'NETWORK_ERROR');
   }
